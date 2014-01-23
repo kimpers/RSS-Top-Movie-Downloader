@@ -15,9 +15,16 @@ class MovieParser:
         self.parser.read('config.cfg')
         self.MOVIE_MIN_YEAR = int(self.parser.get('movie','min_year'))
         self.MOVIE_MIN_RATING = float(self.parser.get('movie','min_rating'))
+        self.MOVIE_MIN_VOTES = int(self.parser.get('movie','min_votes'))
         self.RSS_URL = self.parser.get('rss','rss_url')
         self.releaseTags = self.readReleaseTagsFromFile()
         self.downloadPath = self.parser.get('download','path')
+        self.downloaded = []
+        with open("download.txt") as f:
+            for line in f:
+                self.downloaded.append(line.strip())
+
+        
     
     def parseRSS(self):
         rssStr = self.getUrlContent(self.RSS_URL)
@@ -39,17 +46,21 @@ class MovieParser:
             try:
                 year = int(movie['Year'])
                 rating = float( movie['imdbRating'])
-                if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING):
-                    if not os.path.exists(self.downloadPath+'/'+ release + ".torrent"):
+                votes = int(movie['imdbVotes'].replace(',',''))
+                if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING and votes >= self.MOVIE_MIN_VOTES):
+                    if not os.path.exists(self.downloadPath+'/'+ release + ".torrent") and movie['imdbID'] not in self.downloaded:
+                        with open("download.txt", "a") as f:
+                            f.write(movie['imdbID'] + "\n")
+                        self.downloaded.append(movie['imdbID'])
                         os.chdir(self.downloadPath)
                         torrent = self.downloadTorrentFile(url)
-                        print "Downloading " + release + " (" + str(year) + ") rating " + str(rating) + " to " + self.downloadPath
+                        print "DOWNLOADING " , release , " " , str(year) ," (",votes, ") ", " rating " , str(rating) , " to " , self.downloadPath
                         with open(release + ".torrent", "wb") as f:
                             f.write(torrent)
                     else:
-                        print release ,"(",rating ,") already downloaded"
+                        print "ALREADY DOWNLOADED: ", release , " " , str(year) ," (",votes, ") ", " rating " , str(rating)
                 else:
-                    print release ,"(",rating ,") skipped"
+                    print "SKIPPED: ", release , " " , str(year) ," (",votes, ") ", " rating " , str(rating)
             except ValueError:
                 print "Error parsing rating and year"       
 
