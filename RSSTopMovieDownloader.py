@@ -4,7 +4,7 @@ Downloads movies from Torrent RSS feeds depending on IMDB rating
 @author: Kim
 '''
 
-import httplib2,json,string,os
+import httplib2,json,string,os, re
 from datetime import date
 import xml.etree.ElementTree as ET
 from ConfigParser import SafeConfigParser
@@ -16,16 +16,18 @@ class MovieParser:
         self.MOVIE_MIN_YEAR = int(self.parser.get('movie','min_year'))
         self.MOVIE_MIN_RATING = float(self.parser.get('movie','min_rating'))
         self.MOVIE_MIN_VOTES = int(self.parser.get('movie','min_votes'))
+        self.MOVIE_GENRE = self.parser.get('movie', 'genre');
+        self.MOVIE_LANGUAGE = self.parser.get('movie', 'language');
         self.RSS_URL = self.parser.get('rss','rss_url')
-        self.releaseTags = self.readReleaseTagsFromFile()
-        self.downloadPath = self.parser.get('download','path')
+        self.RELEASE_TAGS = self.readReleaseTagsFromFile()
+        self.DOWNLOAD_PATH = self.parser.get('download','path')
+        
+        
         self.downloaded = []
         with open("download.txt") as f:
             for line in f:
                 self.downloaded.append(line.strip())
 
-        
-    
     def parseRSS(self):
         rssStr = self.getUrlContent(self.RSS_URL)
         xml = ET.fromstring(rssStr)
@@ -47,14 +49,19 @@ class MovieParser:
                 year = int(movie['Year'])
                 rating = float( movie['imdbRating'])
                 votes = int(movie['imdbVotes'].replace(',',''))
-                if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING and votes >= self.MOVIE_MIN_VOTES):
-                    if not os.path.exists(self.downloadPath+'/'+ release + ".torrent") and movie['imdbID'] not in self.downloaded:
+                exp = re.compile(self.MOVIE_GENRE, re.IGNORECASE)
+                matchGenre = exp.search(movie['Genre'])
+                exp = re.compile(self.MOVIE_LANGUAGE, re.IGNORECASE)
+                matchLanguage = exp.search(movie['Language'])
+                
+                if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING and votes >= self.MOVIE_MIN_VOTES  and matchGenre and matchLanguage):
+                    if not os.path.exists(self.DOWNLOAD_PATH+'/'+ release + ".torrent") and movie['imdbID'] not in self.downloaded:
                         with open("download.txt", "a") as f:
                             f.write(movie['imdbID'] + "\n")
                         self.downloaded.append(movie['imdbID'])
-                        os.chdir(self.downloadPath)
+                        os.chdir(self.DOWNLOAD_PATH)
                         torrent = self.downloadTorrentFile(url)
-                        print "DOWNLOADING " , release , " " , str(year) ," (",votes, ") ", " rating " , str(rating) , " to " , self.downloadPath
+                        print "DOWNLOADING " , release , " " , str(year) ," (",votes, ") ", " rating " , str(rating) , " to " , self.DOWNLOAD_PATH
                         with open(release + ".torrent", "wb") as f:
                             f.write(torrent)
                     else:
@@ -97,7 +104,7 @@ class MovieParser:
         movieYear = None
         loop = True
         for word in wordList:
-            for tag in self.releaseTags:
+            for tag in self.RELEASE_TAGS:
                 if string.lower(word) == string.lower(tag.rstrip('\r\n')):
                     loop = False
                     break
