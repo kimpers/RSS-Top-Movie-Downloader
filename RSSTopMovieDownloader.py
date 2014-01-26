@@ -17,11 +17,12 @@ class MovieParser:
         self.MOVIE_MIN_RATING = float(self.parser.get('movie','min_rating'))
         self.MOVIE_MIN_VOTES = int(self.parser.get('movie','min_votes'))
         self.MOVIE_GENRE = self.parser.get('movie', 'genre');
-        self.MOVIE_LANGUAGE = self.parser.get('movie', 'language');
+        self.MOVIE_LANGUAGE = self.parser.get('movie', 'language')
+        self.MOVIE_QUALITY = self.parser.get('movie', 'quality')
         self.RSS_URL = self.parser.get('rss','rss_url')
         self.RELEASE_TAGS = self.readReleaseTagsFromFile()
         self.DOWNLOAD_PATH = self.parser.get('download','path')
-        
+        self.EXP_MOVIE_QUALITY = re.compile(self.MOVIE_QUALITY,re.IGNORECASE)
         
         self.downloaded = []
         with open("download.txt") as f:
@@ -39,37 +40,41 @@ class MovieParser:
 
         
     def parseMovieAndDownload(self, release, url):
-        (name, year) = self.parseMovieNameFromRelease(release)
-        movieJson = self.getMovieFromTitle(name,year)
-        movie = self.parseJson(movieJson)
-        
-        # Continue if lookup was successful
-        if movie != None and movie['Response'] == 'True':
-            try:
-                year = int(movie['Year'])
-                rating = float( movie['imdbRating'])
-                votes = int(movie['imdbVotes'].replace(',',''))
-                exp = re.compile(self.MOVIE_GENRE, re.IGNORECASE)
-                matchGenre = exp.search(movie['Genre'])
-                exp = re.compile(self.MOVIE_LANGUAGE, re.IGNORECASE)
-                matchLanguage = exp.search(movie['Language'])
-                
-                if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING and votes >= self.MOVIE_MIN_VOTES  and matchGenre and matchLanguage):
-                    if not os.path.exists(self.DOWNLOAD_PATH+'/'+ release + ".torrent") and movie['imdbID'] not in self.downloaded:
-                        with open("download.txt", "a") as f:
-                            f.write(movie['imdbID'] + "\n")
-                        self.downloaded.append(movie['imdbID'])
-                        os.chdir(self.DOWNLOAD_PATH)
-                        torrent = self.downloadTorrentFile(url)
-                        print "DOWNLOADING " , release , " " , str(year) ," (",votes, ") ", " rating " , str(rating) , " to " , self.DOWNLOAD_PATH
-                        with open(release + ".torrent", "wb") as f:
-                            f.write(torrent)
+        matchQuality = self.EXP_MOVIE_QUALITY.search(release)
+        if (matchQuality):
+            (name, year) = self.parseMovieNameFromRelease(release)
+            movieJson = self.getMovieFromTitle(name,year)
+            movie = self.parseJson(movieJson)
+            
+            # Continue if lookup was successful
+            if movie != None and movie['Response'] == 'True':
+                try:
+                    year = int(movie['Year'])
+                    rating = float( movie['imdbRating'])
+                    votes = int(movie['imdbVotes'].replace(',',''))
+                    exp = re.compile(self.MOVIE_GENRE, re.IGNORECASE)
+                    matchGenre = exp.search(movie['Genre'])
+                    exp = re.compile(self.MOVIE_LANGUAGE, re.IGNORECASE)
+                    matchLanguage = exp.search(movie['Language'])
+                    
+                    if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING and votes >= self.MOVIE_MIN_VOTES  and matchGenre and matchLanguage):
+                        if not os.path.exists(self.DOWNLOAD_PATH+'/'+ release + ".torrent") and movie['imdbID'] not in self.downloaded:
+                            with open("download.txt", "a") as f:
+                                f.write(movie['imdbID'] + "\n")
+                            self.downloaded.append(movie['imdbID'])
+                            os.chdir(self.DOWNLOAD_PATH)
+                            torrent = self.downloadTorrentFile(url)
+                            print "DOWNLOADING " , release , " " , str(year) ," (",votes, ") ", " rating " , str(rating) , " to " , self.DOWNLOAD_PATH
+                            with open(release + ".torrent", "wb") as f:
+                                f.write(torrent)
+                        else:
+                            print "ALREADY DOWNLOADED: ", release , " " , str(year) ," (",votes, ") ", " rating " , str(rating)
                     else:
-                        print "ALREADY DOWNLOADED: ", release , " " , str(year) ," (",votes, ") ", " rating " , str(rating)
-                else:
-                    print "SKIPPED: ", release , " " , str(year) ," (",votes, ") ", " rating " , str(rating)
-            except ValueError:
-                print "Error parsing rating and year"       
+                        print "SKIPPED: ", release , " " , str(year) ," (",votes, ") ", " rating " , str(rating)
+                except ValueError:
+                    print "Error parsing rating and year"
+        else:
+            print "WRONG QUALITY: ", release 
 
     def downloadTorrentFile(self, url):
         h = httplib2.Http(disable_ssl_certificate_validation=True)
