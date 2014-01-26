@@ -23,6 +23,8 @@ class MovieParser:
         self.RELEASE_TAGS = self.readReleaseTagsFromFile()
         self.DOWNLOAD_PATH = self.parser.get('download','path')
         self.EXP_MOVIE_QUALITY = re.compile(self.MOVIE_QUALITY,re.IGNORECASE)
+        self.EXP_MOVIE_GENRE = re.compile(self.MOVIE_GENRE, re.IGNORECASE)
+        self.EXP_MOVIE_LANGUAGE = re.compile(self.MOVIE_LANGUAGE, re.IGNORECASE)
         
         self.downloaded = []
         with open("download.txt") as f:
@@ -52,10 +54,8 @@ class MovieParser:
                     year = int(movie['Year'])
                     rating = float( movie['imdbRating'])
                     votes = int(movie['imdbVotes'].replace(',',''))
-                    exp = re.compile(self.MOVIE_GENRE, re.IGNORECASE)
-                    matchGenre = exp.search(movie['Genre'])
-                    exp = re.compile(self.MOVIE_LANGUAGE, re.IGNORECASE)
-                    matchLanguage = exp.search(movie['Language'])
+                    matchGenre = self.EXP_MOVIE_GENRE.search(movie['Genre'])
+                    matchLanguage = self.EXP_MOVIE_LANGUAGE.search(movie['Language'])
                     
                     if (year >= self.MOVIE_MIN_YEAR and rating >= self.MOVIE_MIN_RATING and votes >= self.MOVIE_MIN_VOTES  and matchGenre and matchLanguage):
                         if not os.path.exists(self.DOWNLOAD_PATH+'/'+ release + ".torrent") and movie['imdbID'] not in self.downloaded:
